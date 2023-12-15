@@ -1,16 +1,12 @@
 # task_manager_project
+Login Credential :
+email :  kamrulcse1@gmail.com     
 
-A new Flutter project.
+pass :   Kamrul1#
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+//Overview Video file :    
 
-A few resources to get you started if this is your first Flutter project:
+https://github.com/kamruzzaman-aman/task_manager_project/assets/17810615/cc088307-bf61-493f-894d-e20568608164
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
