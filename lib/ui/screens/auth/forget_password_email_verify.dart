@@ -1,8 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
-import 'package:task_manager_project/data/utility/urls.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/controllers/verify_controller.dart';
 import 'package:task_manager_project/ui/screens/auth/forget_password_pin_verification_screen.dart';
 import 'package:task_manager_project/ui/screens/auth/regex_validator.dart';
 import 'package:task_manager_project/ui/widgets/body_background.dart';
@@ -18,8 +17,9 @@ class ForgetPasswordEmailVefiry extends StatefulWidget {
 
 class _ForgetPasswordEmailVefiryState extends State<ForgetPasswordEmailVefiry> {
   final TextEditingController _userEmailTEController = TextEditingController();
-  bool verifyEmailInProgress = false;
   final GlobalKey<FormState> _verifyEmailFormKey = GlobalKey<FormState>();
+  final EmailPassVerifyController _emailPassVerifyController =
+      Get.find<EmailPassVerifyController>();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,18 +65,22 @@ class _ForgetPasswordEmailVefiryState extends State<ForgetPasswordEmailVefiry> {
                     const SizedBox(
                       height: 16,
                     ),
-                    Visibility(
-                      visible: verifyEmailInProgress == false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          verifyEmail();
-                        },
-                        child: const Icon(Icons.arrow_circle_right_outlined),
-                      ),
-                    ),
+                    GetBuilder<EmailPassVerifyController>(
+                        builder: (emailVerifyMessage) {
+                      return Visibility(
+                        visible:
+                            emailVerifyMessage.verifyEmailInProgress == false,
+                        replacement: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            verifyEmail();
+                          },
+                          child: const Icon(Icons.arrow_circle_right_outlined),
+                        ),
+                      );
+                    }),
                     const SizedBox(
                       height: 48,
                     ),
@@ -94,7 +98,7 @@ class _ForgetPasswordEmailVefiryState extends State<ForgetPasswordEmailVefiry> {
                             TextSpan(
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () {
-                                  Navigator.pop(context);
+                                  Get.back();
                                 },
                               text: "Sign in",
                               style: const TextStyle(
@@ -111,45 +115,30 @@ class _ForgetPasswordEmailVefiryState extends State<ForgetPasswordEmailVefiry> {
   }
 
   Future<void> verifyEmail() async {
-    String email = _userEmailTEController.text.trim();
     if (!_verifyEmailFormKey.currentState!.validate()) {
       return;
     }
-    verifyEmailInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-
-    NetworkResponse response =
-        await NetworkCaller().getRequest(Urls.verifyEmailForPin(email));
-    verifyEmailInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-
-    if (response.isSuccess && response.jsonResponse["status"] == "success") {
+    final response = await _emailPassVerifyController
+        .verifyEmail(_userEmailTEController.text.trim());
+    if (response) {
       if (mounted) {
-        showSnackMessage(context, "A 6 digit pin has been sent");
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => ForgetPasswordPinVerification(
-                    email: email,
-                  )),
-        );
+        showSnackMessage(
+            context, _emailPassVerifyController.emailVerifyMessage);
       }
+      Get.to(() => ForgetPasswordPinVerification(
+            email: _userEmailTEController.text.trim(),
+          ));
     } else {
       if (mounted) {
-        showSnackMessage(context, "Email not found", true);
+        showSnackMessage(
+            context, _emailPassVerifyController.emailVerifyMessage, true);
       }
     }
   }
 
-      @override
+  @override
   void dispose() {
     _userEmailTEController.dispose();
     super.dispose();
   }
 }
-
-

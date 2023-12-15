@@ -1,11 +1,8 @@
 import 'dart:convert';
 import 'dart:developer';
-
-import 'package:flutter/material.dart';
 import 'package:http/http.dart';
-import 'package:task_manager_project/app.dart';
 import 'package:task_manager_project/business_logics/controllers/auth_controller.dart';
-import 'package:task_manager_project/ui/screens/auth/login_screen.dart';
+import 'package:task_manager_project/data/network_caller/unauthorized_handling.dart';
 
 import 'network_response.dart';
 
@@ -38,7 +35,7 @@ class NetworkCaller {
             statusCode: 200);
       } else if(response.statusCode==401){
         if (isLogin==false) {
-          backToLogin();
+          UnauthorizedHandle.backToLogin();
         }
         return NetworkResponse(
             isSuccess: false,
@@ -80,7 +77,7 @@ class NetworkCaller {
             jsonResponse: jsonDecode(response.body),
             statusCode: 200);
       } else if(response.statusCode==401){
-          backToLogin();
+          UnauthorizedHandle.backToLogin();
         return NetworkResponse(
             isSuccess: false,
             jsonResponse: jsonDecode(response.body),
@@ -98,11 +95,7 @@ class NetworkCaller {
   }
 
 
-//401 Unauthorized Handling
-Future<void> backToLogin() async{
-  await AuthController.clearAuthData();
-  Navigator.pushAndRemoveUntil(MyApp.navigationKey.currentContext!, MaterialPageRoute(builder: (context)=>const LoginScreen()), (route)=>false);
-}
+
 
 
 }

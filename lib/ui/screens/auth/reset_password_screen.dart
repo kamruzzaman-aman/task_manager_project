@@ -1,8 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
-import 'package:task_manager_project/data/utility/urls.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/controllers/verify_controller.dart';
 import 'package:task_manager_project/ui/screens/auth/login_screen.dart';
 import 'package:task_manager_project/ui/screens/auth/regex_validator.dart';
 import 'package:task_manager_project/ui/widgets/body_background.dart';
@@ -25,7 +24,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final TextEditingController _confirmPassTEController =
       TextEditingController();
   final GlobalKey<FormState> _passFormKey = GlobalKey<FormState>();
-  bool verifyPassInProgress = false;
+  EmailPassVerifyController _emailPassVerifyController =
+      Get.find<EmailPassVerifyController>();
 
   @override
   Widget build(BuildContext context) {
@@ -94,22 +94,26 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     const SizedBox(
                       height: 16,
                     ),
-                    Visibility(
-                      visible: verifyPassInProgress == false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (_passFormKey.currentState!.validate()) {
-                            recoverPassReset();
-                          }
-                        },
-                        child: const Text(
-                          "Confirm",
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
+                    GetBuilder<EmailPassVerifyController>(
+                      builder: (emailPassVerifyController) {
+                        return Visibility(
+                          visible: emailPassVerifyController.verifyPassInProgress == false,
+                          replacement: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (_passFormKey.currentState!.validate()) {
+                                recoverPassReset();
+                              }
+                            },
+                            child: const Text(
+                              "Confirm",
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        );
+                      }
                     ),
                     const SizedBox(
                       height: 48,
@@ -126,12 +130,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             TextSpan(
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const LoginScreen()),
-                                  );
+                                  Get.to(()=>const LoginScreen());
+                                  
                                 },
                               text: "Sign in",
                               style: const TextStyle(
@@ -148,49 +148,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   }
 
   Future<void> recoverPassReset() async {
-    verifyPassInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
+    final response = await _emailPassVerifyController.recoverPassReset(
+        widget.email, widget.pin, _passwordTEController.text.trim());
 
-    Map<String, dynamic> resetData = {
-      "email": widget.email,
-      "OTP": widget.pin,
-      "password": _passwordTEController.text.trim()
-    };
-
-    NetworkResponse response = await NetworkCaller()
-        .postRequest(Urls.recoverResetPassword, body: resetData);
-    verifyPassInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-
-    if (response.isSuccess && response.jsonResponse["status"] == "success") {
+    if (response) {
       if (mounted) {
-        showSnackMessage(context, "Password Reset Success!");
-
-        Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const LoginScreen(),
-            ),
-            (route) => false);
+        showSnackMessage(context, _emailPassVerifyController.resetPassMessage);
+        Get.offAll(() => const LoginScreen());
       }
     } else {
       if (mounted) {
-        showSnackMessage(
-            context, "Password Reset Not Success, try again!", true);
+          showSnackMessage(context, _emailPassVerifyController.resetPassMessage, true);
       }
     }
   }
 
-
-    @override
+  @override
   void dispose() {
     _passwordTEController.dispose();
     _confirmPassTEController.dispose();
     super.dispose();
   }
 }
-

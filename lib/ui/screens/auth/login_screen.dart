@@ -1,15 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:task_manager_project/business_logics/controllers/auth_controller.dart';
-import 'package:task_manager_project/data/models/user_auth_model.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/controllers/login_controller.dart';
 import 'package:task_manager_project/ui/screens/auth/forget_password_email_verify.dart';
 import 'package:task_manager_project/ui/screens/auth/sign_up_screen.dart';
 import 'package:task_manager_project/ui/screens/task/main_bottom_nav_screen.dart';
 import 'package:task_manager_project/ui/widgets/body_background.dart';
-
-import '../../../data/utility/urls.dart';
 import '../../widgets/snack_message.dart';
 import 'regex_validator.dart';
 
@@ -26,8 +22,7 @@ final TextEditingController _userpasswordTEController = TextEditingController();
 
 final GlobalKey<FormState> _loginFormKey = GlobalKey<FormState>();
 
-bool _loginInProgress = false;
-
+final LoginController _loginController = Get.find<LoginController>();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,16 +82,20 @@ bool _loginInProgress = false;
                     const SizedBox(
                       height: 16,
                     ),
-                    Visibility(
-                      visible: !_loginInProgress,   //!true = false
-                      //jodi _loginInProgress = true set hoy, ar true hoile progress hobey otherwish button dekhabe
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: login,
-                        child: const Icon(Icons.arrow_circle_right_outlined),
-                      ),
+                    GetBuilder<LoginController>(
+                      builder: (loginController) {
+                        return Visibility(
+                          visible: loginController.loginInProgress==false,   //!true = false
+                          //jodi _loginInProgress = true set hoy, ar true hoile progress hobey otherwish button dekhabe
+                          replacement: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: login,
+                            child: const Icon(Icons.arrow_circle_right_outlined),
+                          ),
+                        );
+                      }
                     ),
                     const SizedBox(
                       height: 48,
@@ -113,12 +112,7 @@ bool _loginInProgress = false;
                             TextSpan(
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ForgetPasswordEmailVefiry()),
-                                  );
+                                  Get.to(()=>const ForgetPasswordEmailVefiry());
                                 },
                               text: "Click Here",
                               style: const TextStyle(
@@ -141,12 +135,7 @@ bool _loginInProgress = false;
                             TextSpan(
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const SignUpScreen()),
-                                  );
+                                  Get.to(()=>const SignUpScreen());
                                 },
                               text: "Sign Up",
                               style: const TextStyle(
@@ -166,46 +155,24 @@ bool _loginInProgress = false;
     if (!_loginFormKey.currentState!.validate()) {
       return;
     }
-    _loginInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-    NetworkResponse response = await NetworkCaller().postRequest(Urls.login,
-        body: {
-          "email": _userEmailTEController.text.trim(),
-          "password": _userpasswordTEController.text
-        }, isLogin: true);
-        
-    _loginInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-    if (response.isSuccess) {
-      await AuthController.saveUserInformation(response.jsonResponse["token"],
-          UserAuthModel.fromJson(response.jsonResponse["data"]));
+    final response = await _loginController.login( _userEmailTEController.text.trim(), _userpasswordTEController.text);
+ 
+    if (response) {
+      Get.offAll(()=> MainBottomNavScreen());
+      }
+     else {
       if (mounted) {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const MainBottomNavScreen()));
-      }
-    } else {
-      if (response.statusCode == 401) {
-        if (mounted) {
-          showSnackMessage(context, 'Please check email/password');
-        }
-      } else {
-        if (mounted) {
-          showSnackMessage(context, 'Login failed. Try again');
+          showSnackMessage(context, _loginController.failedMessage, true);
         }
       }
     }
-  }
+  
 
   @override
   void dispose() {
     _userEmailTEController.dispose();
     _userpasswordTEController.dispose();
+
     super.dispose();
   }
 }

@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/bindings/binding.dart';
 import 'package:task_manager_project/ui/screens/onboarding/splash_screen.dart';
 
 class MyApp extends StatelessWidget {
    MyApp({super.key});
 
-  static GlobalKey<NavigatorState> navigationKey = GlobalKey<NavigatorState>();
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigationKey,
+    return GetMaterialApp(
       theme: ThemeData(
         appBarTheme: const AppBarTheme(
           systemOverlayStyle: SystemUiOverlayStyle(
               statusBarColor: Colors.black38,
               statusBarIconBrightness: Brightness.light,
               systemNavigationBarColor: Colors.transparent,
-              systemNavigationBarIconBrightness: Brightness.dark),
+              systemNavigationBarIconBrightness: Brightness.dark,
+              ),
         ),
 
         textTheme: const TextTheme(
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const SplashScreen(),
+      initialBinding: ControllerBinder(),
     );
   }
 }

@@ -1,14 +1,7 @@
-
-
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
-import 'package:task_manager_project/ui/widgets/task_list_card.dart';
-
-import '../../../data/models/task_model/task_list_model.dart';
-import '../../../data/network_caller/network_caller.dart';
-import '../../../data/network_caller/network_response.dart';
-import '../../../data/utility/urls.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/controllers/task_list_task_status_count_controller.dart';
+import 'package:task_manager_project/ui/widgets/task_item_card.dart';
 
 class ProgressTaskScreen extends StatefulWidget {
   const ProgressTaskScreen({super.key});
@@ -18,43 +11,50 @@ class ProgressTaskScreen extends StatefulWidget {
 }
 
 class _ProgressTaskScreenState extends State<ProgressTaskScreen> {
-  TaskListModel taskListModel = TaskListModel();
-  bool getProgressTaskInProgress = false;
-
-  Future<void> getProgressTaskList() async {
-    getProgressTaskInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-    final NetworkResponse response =
-        await NetworkCaller().getRequest(Urls.getProgressTask);
-    if (response.isSuccess) {
-      taskListModel = TaskListModel.fromJson(response.jsonResponse);
-      log(" tasklist +$taskListModel");
-    }
-    getProgressTaskInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  TaskListTaskStatusCountController taskListStatusCountController =
+      Get.find<TaskListTaskStatusCountController>();
 
   @override
   void initState() {
     super.initState();
-    getProgressTaskList();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      taskListStatusCountController.getProgressTaskList();
+    });
   }
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       body: Column(
         children: [
-          TaskListCard(taskList: taskListModel, getTaskInProgress: getProgressTaskInProgress, getTaskByStatus: getProgressTaskList,)
+          Expanded(child: GetBuilder<TaskListTaskStatusCountController>(
+              builder: (taskList) {
+            return Visibility(
+              visible: taskList.getTaskInProgress == false,
+              replacement: const Center(
+                child: CircularProgressIndicator(),
+              ),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  taskListStatusCountController.getProgressTaskList();
+                },
+                child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: taskList.taskProgressListModel.data?.length ?? 0,
+                    itemBuilder: (_, index) {
+                      final task = taskList.taskProgressListModel.data![index];
+
+                      return TaskItemCard(
+                          task: task,
+                          getTaskByStatus: () {
+                            taskListStatusCountController.getProgressTaskList();
+                          });
+                    }),
+              ),
+            );
+          }))
         ],
       ),
     );
   }
 }
-

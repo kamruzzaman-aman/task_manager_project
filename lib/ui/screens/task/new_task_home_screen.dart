@@ -1,14 +1,8 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
-import 'package:task_manager_project/data/models/task_model/task_list_model.dart';
-import 'package:task_manager_project/data/models/task_model/task_status_count.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
-import 'package:task_manager_project/ui/widgets/task_list_card.dart';
-
-import '../../../data/utility/urls.dart';
-import '../../widgets/task_counter_card.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/controllers/task_list_task_status_count_controller.dart';
+import 'package:task_manager_project/ui/widgets/task_counter_card.dart';
+import 'package:task_manager_project/ui/widgets/task_item_card.dart';
 
 class NewTaskHomeScreen extends StatefulWidget {
   const NewTaskHomeScreen({super.key});
@@ -18,76 +12,54 @@ class NewTaskHomeScreen extends StatefulWidget {
 }
 
 class _NewTaskHomeScreenState extends State<NewTaskHomeScreen> {
-
-//Get Task New List
-
-  TaskListModel taskListModel = TaskListModel();
-  bool getNewTaskInProgress = false;
-
-  Future<void> getNewTaskList() async {
-    getNewTaskInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-    final NetworkResponse response =
-        await NetworkCaller().getRequest(Urls.getNewTask);
-    if (response.isSuccess) {
-      await getTaskStatusCount();
-      taskListModel = TaskListModel.fromJson(response.jsonResponse);
-       
-      log(" tasklist +$taskListModel");
-    }
-    getNewTaskInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-
-//Get Task Status Count Data
-
-TaskStatusCountModel taskStatusCountModel = TaskStatusCountModel();
-  bool getTaskStatusInProgress = false;
-
-    Future<void> getTaskStatusCount() async {
-    getTaskStatusInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-    final NetworkResponse response =
-        await NetworkCaller().getRequest(Urls.taskStatusCount);
-    if (response.isSuccess) {
-      taskStatusCountModel = TaskStatusCountModel.fromJson(response.jsonResponse);
-      log(" tasklist +$taskStatusCountModel");
-    }
-    getTaskStatusInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  TaskListTaskStatusCountController taskListStatusCountController =
+      Get.find<TaskListTaskStatusCountController>();
 
   @override
   void initState() {
     super.initState();
-    getNewTaskList();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // This code will be executed after the first frame is built
+      // You can perform initialization tasks here
+      taskListStatusCountController.getNewTaskList();
+      taskListStatusCountController.getTaskStatusCount();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // floatingActionButton: FloatingActionButton(
-      //   backgroundColor: Colors.green,
-      //   foregroundColor: Colors.white,
-      //   onPressed: () {
-      //     Navigator.push(context,
-      //         MaterialPageRoute(builder: (_) => const AddNewTaskScreen()));
-      //   },
-      //   child: const Icon(Icons.add),
-      // ),
       body: Column(
         children: [
-        TaskCounterCard(taskStatusCountModel: taskStatusCountModel, TaskStatusInProgress: getTaskStatusInProgress,), 
-        TaskListCard(taskList: taskListModel, getTaskInProgress: getNewTaskInProgress, getTaskByStatus: getNewTaskList,)],
+          const TaskCounterCard(),
+          Expanded(child: GetBuilder<TaskListTaskStatusCountController>(
+              builder: (taskList) {
+            return Visibility(
+              visible: taskList.getTaskInProgress == false,
+              replacement: const Center(
+                child: CircularProgressIndicator(),
+              ),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  taskListStatusCountController.getNewTaskList();
+                  taskListStatusCountController.getTaskStatusCount();
+                },
+                child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: taskList.taskNewListModel.data?.length ?? 0,
+                    itemBuilder: (_, index) {
+                      final task = taskList.taskNewListModel.data![index];
+
+                      return TaskItemCard(
+                          task: task,
+                          getTaskByStatus: () {
+                            taskListStatusCountController.getNewTaskList();
+                          });
+                    }),
+              ),
+            );
+          }))
+        ],
       ),
     );
   }

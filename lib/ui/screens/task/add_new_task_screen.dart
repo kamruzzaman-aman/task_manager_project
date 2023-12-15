@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
-import 'package:task_manager_project/data/utility/urls.dart';
+import 'package:get/get.dart';
+import 'package:task_manager_project/business_logics/controllers/task_list_task_status_count_controller.dart';
 import 'package:task_manager_project/ui/widgets/app_bar.dart';
 import 'package:task_manager_project/ui/widgets/snack_message.dart';
 
@@ -22,18 +21,15 @@ class _AddNewTaskScreenState extends State<AddNewTaskScreen> {
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  bool _createTaskInProgress = false;
-  
+  TaskListTaskStatusCountController tasklistController =
+      Get.find<TaskListTaskStatusCountController>();
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (bool pop){
-         Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const MainBottomNavScreen()),
-              (route) => false);
+      onPopInvoked: (bool value){
+        Get.offAll(MainBottomNavScreen());
       },
       child: Scaffold(
         appBar: taskAppsBar(context, enableOnTap: false),
@@ -92,20 +88,24 @@ class _AddNewTaskScreenState extends State<AddNewTaskScreen> {
                             width: double.infinity,
                             child: ElevatedButton(
                                 onPressed: createTask,
-                                child: Visibility(
-                                  visible: _createTaskInProgress == false,
-                                  replacement: const SizedBox(
-                                    height: 20.0,
-                                    width: 20.0,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
+                                child:
+                                    GetBuilder<TaskListTaskStatusCountController>(
+                                        builder: (addTask) {
+                                  return Visibility(
+                                    visible: addTask.addTaskInProgress == false,
+                                    replacement: const SizedBox(
+                                      height: 20.0,
+                                      width: 20.0,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: const Icon(
-                                      Icons.arrow_circle_right_outlined),
-                                )),
+                                    child: const Icon(
+                                        Icons.arrow_circle_right_outlined),
+                                  );
+                                })),
                           )
                         ],
                       ),
@@ -122,34 +122,18 @@ class _AddNewTaskScreenState extends State<AddNewTaskScreen> {
 
   Future<void> createTask() async {
     if (_formKey.currentState!.validate()) {
-      _createTaskInProgress = true;
-      if (mounted) {
-        setState(() {});
-      }
-
-      final NetworkResponse response =
-          await NetworkCaller().postRequest(Urls.createTask, body: {
-        "title": _subjectTEController.text.trim(),
-        "description": _descriptionTEController.text.trim(),
-        "status": "New"
-      });
-      _createTaskInProgress = false;
-      if (mounted) {
-        setState(() {});
-      }
-      if (response.isSuccess) {
-        controllerClear;
+      final response = await tasklistController.createTask(
+          _subjectTEController.text.trim(), _subjectTEController.text.trim());
+      if (response) {
         if (mounted) {
-          showSnackMessage(context, "New task added!");
-          // Navigator.pushAndRemoveUntil(
-          //     context,
-          //     MaterialPageRoute(
-          //         builder: (context) => const MainBottomNavScreen()),
-          //     (route) => false);
+          showSnackMessage(context, tasklistController.addMessage);
         }
+        controllerClear;
+        // await tasklistController.getNewTaskList();
+        // await tasklistController.getTaskStatusCount();
       } else {
         if (mounted) {
-          showSnackMessage(context, 'Create new task failed! Try again', true);
+          showSnackMessage(context, tasklistController.addMessage, true);
         }
       }
     }

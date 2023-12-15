@@ -1,9 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
-import 'package:task_manager_project/data/utility/urls.dart';
+import 'package:task_manager_project/business_logics/controllers/verify_controller.dart';
 import 'package:task_manager_project/ui/screens/auth/login_screen.dart';
 import 'package:task_manager_project/ui/screens/auth/reset_password_screen.dart';
 import 'package:task_manager_project/ui/widgets/body_background.dart';
@@ -21,8 +20,11 @@ class ForgetPasswordPinVerification extends StatefulWidget {
 class _ForgetPasswordPinVerificationState
     extends State<ForgetPasswordPinVerification> {
   String pin = "";
-  bool verifyPinInProgress = false;
   final GlobalKey<FormState> _pinFormKey = GlobalKey<FormState>();
+
+  final EmailPassVerifyController _emailPassVerifyController =
+      Get.find<EmailPassVerifyController>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,23 +102,26 @@ class _ForgetPasswordPinVerificationState
                     const SizedBox(
                       height: 16,
                     ),
-                    Visibility(
-                      visible: verifyPinInProgress == false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (_pinFormKey.currentState!.validate()) {
-                            verifyEmail();
-                          }
-                        },
-                        child: const Text(
-                          "Verify",
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                    GetBuilder<EmailPassVerifyController>(
+                        builder: (emailPassVerify) {
+                      return Visibility(
+                        visible: emailPassVerify.verifyPinInProgress == false,
+                        replacement: const Center(
+                          child: CircularProgressIndicator(),
                         ),
-                      ),
-                    ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (_pinFormKey.currentState!.validate()) {
+                              verifyPin();
+                            }
+                          },
+                          child: const Text(
+                            "Verify",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      );
+                    }),
                     const SizedBox(
                       height: 48,
                     ),
@@ -134,12 +139,7 @@ class _ForgetPasswordPinVerificationState
                             TextSpan(
                               recognizer: TapGestureRecognizer()
                                 ..onTap = () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const LoginScreen()),
-                                  );
+                                  Get.to(() => const LoginScreen());
                                 },
                               text: "Sign in",
                               style: const TextStyle(
@@ -155,34 +155,22 @@ class _ForgetPasswordPinVerificationState
     ));
   }
 
-  Future<void> verifyEmail() async {
-    verifyPinInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
+  Future<void> verifyPin() async {
+    final response =
+        await _emailPassVerifyController.verifyPin(widget.email, pin);
 
-    NetworkResponse response = await NetworkCaller()
-        .getRequest(Urls.verifyPinForReset(widget.email, pin));
-    verifyPinInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-
-    if (response.isSuccess && response.jsonResponse["status"] == "success") {
+    if (response) {
       if (mounted) {
-        showSnackMessage(context, "Pin Verification Success");
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => ResetPasswordScreen(
-                    email: widget.email,
-                    pin: pin,
-                  )),
-        );
+        showSnackMessage(context, _emailPassVerifyController.pinVerifyMessage);
       }
+      Get.off(() => ResetPasswordScreen(
+            email: widget.email,
+            pin: pin,
+          ));
     } else {
       if (mounted) {
-        showSnackMessage(context, "Pin not match", true);
+        showSnackMessage(
+            context, _emailPassVerifyController.pinVerifyMessage, true);
       }
     }
   }

@@ -1,17 +1,13 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:task_manager_project/business_logics/controllers/auth_controller.dart';
-import 'package:task_manager_project/data/models/user_auth_model.dart';
-import 'package:task_manager_project/data/network_caller/network_caller.dart';
-import 'package:task_manager_project/data/network_caller/network_response.dart';
-import 'package:task_manager_project/data/utility/urls.dart';
+import 'package:task_manager_project/business_logics/controllers/update_delete_controller.dart';
 import 'package:task_manager_project/ui/screens/auth/regex_validator.dart';
+import 'package:task_manager_project/ui/widgets/app_bar.dart';
 import 'package:task_manager_project/ui/widgets/body_background.dart';
 import 'package:task_manager_project/ui/widgets/snack_message.dart';
-
-import '../../widgets/app_bar.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -27,17 +23,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _mobileTEController = TextEditingController();
   final TextEditingController _passwordTEController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _updateInProgress = false;
 
-  XFile? photo;
+  Rx<XFile?> photo = Rx<XFile?>(null);
+
+  final AuthController _authController = Get.find<AuthController>();
+  final UpdateDeleteTask _updateController = Get.find<UpdateDeleteTask>();
 
   @override
   void initState() {
     super.initState();
-    _emailTEController.text = AuthController.user?.email ?? "";
-    _firstNameTEController.text = AuthController.user?.firstName ?? "";
-    _lastNameTEController.text = AuthController.user?.lastName ?? "";
-    _mobileTEController.text = AuthController.user?.mobile ?? "";
+    _emailTEController.text = _authController.user?.email ?? "";
+    _firstNameTEController.text = _authController.user?.firstName ?? "";
+    _lastNameTEController.text = _authController.user?.lastName ?? "";
+    _mobileTEController.text = _authController.user?.mobile ?? "";
   }
 
   @override
@@ -147,17 +145,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   SizedBox(
                     width: double.infinity,
-                    child: Visibility(
-                      visible: _updateInProgress == false,
-                      replacement: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          updateProfile();
-                        },
-                        child: const Icon(Icons.arrow_circle_right_outlined),
-                      ),
+                    child: GetBuilder<UpdateDeleteTask>(
+                      builder: (updateProfile) {
+                        return Visibility(
+                          visible: updateProfile.updateInProgress == false,
+                          replacement: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              updateProfileScreen();
+                            },
+                            child: const Icon(Icons.arrow_circle_right_outlined),
+                          ),
+                        );
+                      }
                     ),
                   )
                 ],
@@ -169,50 +171,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Future<void> updateProfile() async {
+  Future<void> updateProfileScreen() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    _updateInProgress = true;
-    if (mounted) {
-      setState(() {});
-    }
-    String? photoInBase64;
-    Map<String, dynamic> updateData = {
-      "email": _emailTEController.text.trim(),
-      "firstName": _firstNameTEController.text.trim(),
-      "lastName": _lastNameTEController.text.trim(),
-      "mobile": _mobileTEController.text.trim(),
-    };
-
-    if (_passwordTEController.text.isNotEmpty) {
-      updateData["password"] = _passwordTEController.text.trim();
-    }
-    if (photo != null) {
-      List<int> imageBytes = await photo!.readAsBytes();
-      photoInBase64 = base64Encode(imageBytes);
-      updateData["photo"] = photoInBase64;
-    }
-
-    NetworkResponse response =
-        await NetworkCaller().postRequest(Urls.profileUpdate, body: updateData);
-    _updateInProgress = false;
-    if (mounted) {
-      setState(() {});
-    }
-    if (response.isSuccess) {
-      await AuthController.updateUserInformation(UserAuthModel(
-          email: _emailTEController.text.trim(),
-          firstName: _firstNameTEController.text.trim(),
-          lastName: _lastNameTEController.text.trim(),
-          mobile: _mobileTEController.text.trim(),
-          photo: photoInBase64 ?? AuthController.user!.photo));
+    final response = await _updateController.updateProfile(
+        _emailTEController.text.trim(),
+        _firstNameTEController.text.trim(),
+        _lastNameTEController.text.trim(),
+        _mobileTEController.text.trim(),
+        _passwordTEController.text.trim(),
+        photo.value);
+    if (response) {
       if (mounted) {
-        showSnackMessage(context, 'Update profile success!');
+        showSnackMessage(context, _updateController.updateMessage);
       }
     } else {
       if (mounted) {
-        showSnackMessage(context, 'Update profile failed. Try again.');
+        showSnackMessage(context, _updateController.updateMessage);
       }
     }
   }
@@ -251,11 +227,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     return BuildBottomSheet(
                       xPhoto: (XFile? getPhoto) {
                         if (getPhoto != null) {
-                          photo = getPhoto;
-
-                          if (mounted) {
-                            setState(() {});
-                          }
+                          photo.value = getPhoto;
                         }
                       },
                     );
@@ -264,10 +236,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               },
               child: Container(
                 padding: const EdgeInsets.only(left: 16),
-                child: Visibility(
-                    visible: photo == null,
-                    replacement: Text(photo?.name ?? ""),
-                    child: const Text('Select a photo')),
+                child: Obx(
+                  () => Visibility(
+                      visible: photo.value == null,
+                      replacement: Text(photo.value?.name ?? ""),
+                      child: const Text('Select a photo')),
+                ),
               ),
             ),
           ),
@@ -298,7 +272,6 @@ class BuildBottomSheet extends StatefulWidget {
 }
 
 class _BuildBottomSheetState extends State<BuildBottomSheet> {
-  XFile? photo;
   @override
   Widget build(BuildContext context) {
     return Container(
